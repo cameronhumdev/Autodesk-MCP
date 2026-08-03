@@ -8,6 +8,6 @@ Research repo for an Autodesk-oriented cloud AI service:
 
 MCP servers drive Inventor/AutoCAD. AnythingLLM is the subscriber-facing AI (docs + chat; private or public workspaces). LLMs are pluggable (OpenAI / open local models).
 
-**Plan:** [PLAN.md](./PLAN.md) — Docker Engine + Docker Compose + Terraform/OpenTofu, scope, flows, build order.
+**Plan:** [PLAN.md](./PLAN.md) — Docker + Kubernetes + Terraform/OpenTofu, scope, flows, build order.
 
 Status: planning. Implementation not started.

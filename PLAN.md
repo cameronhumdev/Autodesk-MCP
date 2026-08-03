@@ -1,35 +1,42 @@
 # Plan — Autodesk MCP + cloneable RAG cloud
 
-## Docker + Compose + Terraform (all three)
+## Docker + Kubernetes + Terraform (the real trio)
 
-Yes — v1 uses **all three**. They stack; they don’t replace each other.
+Sorry for the mix-up earlier — when you meant cluster health/scaling/pods, that’s **Kubernetes (K8s)**, not Docker Compose.
 
-| | **Docker** (Engine) | **Docker Compose** | **Terraform / OpenTofu** |
-|--|---------------------|--------------------|---------------------------|
-| Job | The **runtime** that runs container images | The **app recipe** for one stack: which containers, how they link | The **cloud recipe** that creates the machine/network/storage and deploys that Compose stack per subscriber |
-| Handles | Pull images, create/run containers, cgroups/networking at engine level | `docker-compose.yml`: services, **networks**, **volumes**, **depends_on**, **healthchecks**, restart policies, env files | VMs (or similar), disks/buckets, DNS/TLS, firewalls, “what goes where”, `subscriber_id` clones |
-| Health / failure | Engine can restart a container if asked | **Where we define** healthchecks + restart + “wait for DB before AnythingLLM” | Can replace a whole dead VM / re-apply infra; not the day-to-day process supervisor |
-| AI brain | Runs the AnythingLLM **image** | Wires AnythingLLM (+ DB/vector/Ollama if local) as one unit | Places that Compose unit on isolated infra + private storage per subscriber |
-| Do we need it? | **Yes** — nothing runs without the engine | **Yes** (v1) — simplest way to run/link the AI stack with healthchecks | **Yes** (cloud) — how we clone and isolate subscribers |
+| | **Docker** | **Kubernetes (K8s)** | **Terraform / OpenTofu** |
+|--|------------|----------------------|---------------------------|
+| Job | Build and ship **container images** (OCI). Local run for dev. | **Orchestrate** those containers across a cluster: pods, deploy, scale, heal | **Provision** the cloud: cluster, node pools, disks, DNS, network, tenant isolation |
+| Handles | `docker build` / image registry; optional local `docker run` | Pods, Deployments/StatefulSets, Services, Ingress, **liveness/readiness probes**, restarts, rolling updates, multi-node | VPC, managed K8s (EKS/AKS/GKE or on-prem), storage classes, TLS, `subscriber_id` namespaces or clusters |
+| Health / failure | Single-host only | **Cluster-level**: unhealthy pod replaced, reschedule if node dies, scale out | Recreate/fix infra by re-applying; not the day-to-day pod supervisor |
+| AI brain | AnythingLLM **image** | AnythingLLM runs as **pods** (per subscriber namespace or dedicated release) | Creates the cluster + storage so each subscriber stays separate |
+| Do we need it? | **Yes** — we still package apps as images | **Yes** (cloud product) — this is where connections, health, scaling live | **Yes** — spins up / links cloud resources |
 
-**Short version (order they sit in the stack):**
-1. **Terraform / OpenTofu** — builds the VM, disk, DNS (clone per subscriber).  
-2. **Docker Engine** — installed on that VM; this is Docker — it runs every container.  
-3. **Docker Compose** — file on that VM that tells Docker *which* containers, how they link, **healthchecks**, restarts.  
+**Docker Compose** = optional **local laptop** shortcut only. Production cloud path is **K8s**, not Compose.
 
-Local laptop: **Docker Engine + Docker Compose** (no Terraform).  
-Cloud clone: **Terraform → Docker Engine → Docker Compose → AnythingLLM**.
+**Short version:**
+1. **Terraform / OpenTofu** — creates the Kubernetes cluster, storage, DNS.  
+2. **Kubernetes** — runs AnythingLLM in pods; health probes, restarts, scaling.  
+3. **Docker** — builds the images K8s pulls and runs (nodes often use containerd under the hood; images stay Docker/OCI format).
+
+```text
+Terraform/OpenTofu  →  Kubernetes cluster  →  Pods (AnythingLLM, etc.)
+                              ↑
+                     Docker-built images from registry
+```
+
+### Is Kubernetes still “cutting edge”?
+
+**It’s the industry standard, not a fad.** In 2026 it’s mature and mainstream — what serious cloud platforms use for containerized apps. “Cutting edge” today is more WASM/edge/serverless experiments; **K8s is the proven backbone**. Knowing it is an advantage. We should use it for this cloud service.
 
 **License / cost**
 
 | Tool | Free to use? |
 |------|----------------|
-| **Docker Engine** (Linux server) | Yes (open source). Docker *Desktop* on work PCs has its own company license rules. |
-| **Docker Compose** | Yes — free/OSS (Compose V2 plugin with Engine). |
-| **Terraform** CLI | Usable free; HashiCorp BSL. Many teams use **OpenTofu** (MPL-2.0 fork, same workflow). |
-| **Terraform Cloud** | Optional SaaS; free tier / paid teams — not required. |
-
-Software licenses for this trio can be $0; you still pay cloud compute.
+| **Docker** (Engine / image tooling) | Engine OSS yes; Desktop has company rules |
+| **Kubernetes** | Yes — open source (Apache-2.0) |
+| **Managed K8s** (EKS/AKS/GKE) | Control plane / nodes are paid cloud usage |
+| **Terraform / OpenTofu** | CLI free; OpenTofu MPL-2.0; Cloud SaaS optional |
 
 ---
 
@@ -37,23 +44,23 @@ Software licenses for this trio can be $0; you still pay cloud compute.
 
 ### In scope
 1. **AnythingLLM** — cloneable private / public AI (docs + chat)
-2. **OpenTofu/Terraform module** — spin up one isolated subscriber VM + storage + DNS
-3. **Docker Engine** on that VM — container runtime (required)
-4. **Docker Compose** on that VM — AnythingLLM (+ DB/vector as needed), healthchecks, networks
+2. **OpenTofu/Terraform** — provision K8s cluster + storage + Ingress/DNS
+3. **Docker** — image build/publish for anything custom; pull official AnythingLLM image
+4. **Kubernetes** — deploy AnythingLLM (Deployment/StatefulSet), probes, per-subscriber **Namespace** (or Helm release)
 5. **Doc ingest** — PDFs and text first; CAD exports later
-6. **LLM plug** — cloud API and/or Ollama on the same (or sibling) host
-7. **Wire docs only** — private workspace vs shared/public workspace
+6. **LLM plug** — cloud API and/or in-cluster / sidecar Ollama where it fits
+7. Private vs public workspaces
 
 ### Later (v2)
-7. Windows **CAD workers** with **ipt-mcp** + **U-C4N** Autocad-MCP  
-8. Pipeline: `.ipt` / `.dwg` → PDF/DXF/properties → into that subscriber’s RAG  
-9. ChatGPT remote MCP connector / HTTPS gateway  
-10. Billing / signup automation  
+8. Windows **CAD workers** (often **outside** Linux K8s): **ipt-mcp** + **U-C4N**  
+9. `.ipt` / `.dwg` → PDF/DXF/properties → subscriber RAG  
+10. ChatGPT remote MCP / HTTPS gateway  
+11. Billing / signup automation  
 
 ### Out of scope for v1
 - Merging Inventor + AutoCAD into one MCP binary  
-- Raw binary `.ipt`/`.dwg` as RAG documents without export  
-- Multi-region HA / full Kubernetes (unless you already standardize on it)
+- Raw binary `.ipt`/`.dwg` as RAG without export  
+- Multi-region active-active (can add once single-cluster path works)
 
 ---
 
@@ -64,54 +71,48 @@ Software licenses for this trio can be $0; you still pay cloud compute.
 ```mermaid
 flowchart TD
   T[1 Terraform / OpenTofu]
-  VM[2 VM + disk + HTTPS]
-  DE[3 Docker Engine]
-  DC[4 Docker Compose]
-  ALLM[5 AnythingLLM container]
-  LLM[Ollama or API config]
-  Vol[Private subscriber volume]
+  C[2 Kubernetes cluster + Ingress]
+  NS[3 Namespace per subscriber]
+  IMG[Docker image registry]
+  POD[4 AnythingLLM pods]
+  PVC[Private PVC / bucket]
+  LLM[LLM API or Ollama]
 
-  T --> VM
-  VM --> DE
-  DE --> DC
-  DC -->|healthchecks networks volumes| ALLM
-  DC --> LLM
-  Vol --> ALLM
-  LLM --> ALLM
+  T --> C
+  T --> NS
+  IMG -->|pull image| POD
+  C --> POD
+  NS --> POD
+  PVC --> POD
+  LLM --> POD
+  C -->|liveness readiness restart scale| POD
 ```
 
-Docker is step **3** — not optional, not the same thing as Compose.
-
-### B. Day-to-day use (private or public AI)
+### B. Day-to-day use
 
 ```mermaid
 flowchart TD
   User[Subscriber user]
-  User -->|HTTPS chat| ALLM[AnythingLLM]
-  ALLM -->|retrieve chunks| Docs[Their PDFs / exports on private storage]
-  ALLM -->|prompt + context| Brain[LLM: OpenAI API or Ollama]
+  User -->|HTTPS Ingress| SVC[K8s Service]
+  SVC --> ALLM[AnythingLLM pod]
+  ALLM --> Docs[Their docs on PVC/bucket]
+  ALLM --> Brain[LLM]
   Brain --> ALLM
   ALLM --> User
-
-  Admin[Admin]
-  Admin -->|upload docs| Docs
-  Admin -->|set workspace private or shared| ALLM
 ```
 
-### C. Later: CAD in the loop (v2)
+### C. Later: CAD (v2)
 
 ```mermaid
 flowchart TD
-  User[User in AnythingLLM or ChatGPT]
-  User --> ALLM[AnythingLLM]
-  ALLM -->|ask standards / manuals| RAG[Doc RAG]
-  ALLM -->|tool call MCP| Bridge[HTTPS or local MCP bridge]
-  Bridge --> Inv[ipt-mcp on Windows + Inventor]
-  Bridge --> ACad[U-C4N on Windows + AutoCAD]
-  Inv --> CADFiles[Models / drawings]
-  ACad --> CADFiles
-  CADFiles -->|export PDF DXF props| RAG
+  User --> ALLM[AnythingLLM on K8s]
+  ALLM --> RAG[Doc RAG]
+  ALLM --> Bridge[MCP bridge]
+  Bridge --> Win[Windows workers: Inventor / AutoCAD MCPs]
+  Win -->|exports| RAG
 ```
+
+CAD apps stay on **Windows nodes/VMs**; Linux K8s hosts the RAG/AI front door.
 
 ---
 
@@ -119,34 +120,35 @@ flowchart TD
 
 | Layer | Isolation |
 |-------|-----------|
-| Infra | Own VM **or** own Compose project + volumes (Terraform module input: `subscriber_id`) |
-| Data | Own disk/bucket — other tenants cannot read it |
-| AI brain | Own AnythingLLM workspace(s); private by default |
-| Public AI | Optional second workspace marked shared, or embed widget |
-| CAD (v2) | Optional dedicated Windows worker or pooled workers with strict tenant auth |
+| K8s | Namespace + NetworkPolicy (+ optional dedicated release) |
+| Data | Own PVC / bucket — other tenants blocked |
+| AI | Own AnythingLLM instance or workspace; private by default |
+| Public AI | Shared workspace or public Ingress path / embed |
+| CAD (v2) | Windows pool with tenant auth — not mixed into Linux pods |
 
 ---
 
-## Build order (start creating)
+## Build order
 
 | Step | Deliverable |
 |------|-------------|
-| 1 | Install **Docker Engine** + **Docker Compose** locally |
-| 2 | Compose file: AnythingLLM up, chat + PDF upload works |
-| 3 | OpenTofu/Terraform: one VM, install **Docker Engine**, run Compose, volume + HTTPS |
-| 4 | Parameterize: `subscriber_id`, private vs public workspace flags |
-| 5 | Document “clone” = `tofu apply -var=subscriber_id=acme` |
-| 6 | (v2) Windows CAD worker + MCP + export-to-RAG path |
+| 1 | Local: Docker + AnythingLLM (Compose OK for laptop only) |
+| 2 | Terraform/OpenTofu: managed or self-hosted **Kubernetes** cluster |
+| 3 | K8s manifests or Helm: AnythingLLM + probes + PVC + Ingress |
+| 4 | Clone path: new Namespace / values for `subscriber_id` |
+| 5 | Private vs public workspace runbook |
+| 6 | (v2) Windows CAD workers + MCP + export-to-RAG |
 
 ---
 
-## Stack choices (locked for v1)
+## Stack choices
 
 | Role | Choice | License |
 |------|--------|---------|
 | RAG / cloneable AI | AnythingLLM | MIT |
-| Container runtime | Docker Engine | OSS |
-| App stack / healthchecks | Docker Compose | OSS |
+| Images | Docker / OCI | OSS |
+| Orchestration (cloud) | **Kubernetes** | Apache-2.0 |
+| Local-only helper | Docker Compose | OSS |
 | Infra as code | OpenTofu (Terraform-compatible) | MPL-2.0 |
 | Inventor MCP (v2) | ipt-mcp | Apache-2.0 |
 | AutoCAD MCP (v2) | U-C4N Autocad-MCP | MIT |
