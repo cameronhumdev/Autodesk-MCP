@@ -12,12 +12,13 @@ Yes — v1 uses **all three**. They stack; they don’t replace each other.
 | AI brain | Runs the AnythingLLM **image** | Wires AnythingLLM (+ DB/vector/Ollama if local) as one unit | Places that Compose unit on isolated infra + private storage per subscriber |
 | Do we need it? | **Yes** — nothing runs without the engine | **Yes** (v1) — simplest way to run/link the AI stack with healthchecks | **Yes** (cloud) — how we clone and isolate subscribers |
 
-**Short version:**
-1. **Terraform/OpenTofu** — builds the box and storage (clone per subscriber).  
-2. **Docker Compose** — on that box, defines AnythingLLM (+ friends), networks, volumes, **healthchecks**, restarts.  
-3. **Docker Engine** — actually runs those containers.
+**Short version (order they sit in the stack):**
+1. **Terraform / OpenTofu** — builds the VM, disk, DNS (clone per subscriber).  
+2. **Docker Engine** — installed on that VM; this is Docker — it runs every container.  
+3. **Docker Compose** — file on that VM that tells Docker *which* containers, how they link, **healthchecks**, restarts.  
 
-Local laptop testing can be Compose + Docker only (no Terraform). Cloud “clone a subscriber” adds Terraform/OpenTofu on top.
+Local laptop: **Docker Engine + Docker Compose** (no Terraform).  
+Cloud clone: **Terraform → Docker Engine → Docker Compose → AnythingLLM**.
 
 **License / cost**
 
@@ -36,11 +37,12 @@ Software licenses for this trio can be $0; you still pay cloud compute.
 
 ### In scope
 1. **AnythingLLM** — cloneable private / public AI (docs + chat)
-2. **OpenTofu/Terraform module** — spin up one isolated subscriber stack
-3. **Docker Compose** on that stack — AnythingLLM (+ DB/vector as needed)
-4. **Doc ingest** — PDFs and text first; CAD exports later
-5. **LLM plug** — cloud API and/or Ollama on the same (or sibling) host
-6. **Wire docs only** — private workspace vs shared/public workspace
+2. **OpenTofu/Terraform module** — spin up one isolated subscriber VM + storage + DNS
+3. **Docker Engine** on that VM — container runtime (required)
+4. **Docker Compose** on that VM — AnythingLLM (+ DB/vector as needed), healthchecks, networks
+5. **Doc ingest** — PDFs and text first; CAD exports later
+6. **LLM plug** — cloud API and/or Ollama on the same (or sibling) host
+7. **Wire docs only** — private workspace vs shared/public workspace
 
 ### Later (v2)
 7. Windows **CAD workers** with **ipt-mcp** + **U-C4N** Autocad-MCP  
@@ -60,27 +62,25 @@ Software licenses for this trio can be $0; you still pay cloud compute.
 ### A. Provision (clone a subscriber AI)
 
 ```mermaid
-flowchart LR
-  subgraph ops [You / automation]
-    T[OpenTofu / Terraform apply]
-  end
-  subgraph cloud [Cloud account]
-    VM[VM with Docker Engine]
-    Vol[Private volume / bucket]
-    DNS[HTTPS URL]
-  end
-  subgraph compose [Docker Compose on that VM]
-    ALLM[AnythingLLM]
-    LLM[Ollama or API sidecar]
-  end
+flowchart TD
+  T[1 Terraform / OpenTofu]
+  VM[2 VM + disk + HTTPS]
+  DE[3 Docker Engine]
+  DC[4 Docker Compose]
+  ALLM[5 AnythingLLM container]
+  LLM[Ollama or API config]
+  Vol[Private subscriber volume]
+
   T --> VM
-  T --> Vol
-  T --> DNS
-  T -->|install / run compose file| compose
+  VM --> DE
+  DE --> DC
+  DC -->|healthchecks networks volumes| ALLM
+  DC --> LLM
   Vol --> ALLM
   LLM --> ALLM
-  DNS --> ALLM
 ```
+
+Docker is step **3** — not optional, not the same thing as Compose.
 
 ### B. Day-to-day use (private or public AI)
 
@@ -131,11 +131,12 @@ flowchart TD
 
 | Step | Deliverable |
 |------|-------------|
-| 1 | Docker Compose: AnythingLLM up locally, chat + PDF upload works |
-| 2 | OpenTofu/Terraform module: one VM + Compose + volume + HTTPS |
-| 3 | Parameterize module: `subscriber_id`, private vs public workspace flags |
-| 4 | Document “clone” = `tofu apply -var=subscriber_id=acme` |
-| 5 | (v2) Windows CAD worker image + MCP + export-to-RAG path |
+| 1 | Install **Docker Engine** + **Docker Compose** locally |
+| 2 | Compose file: AnythingLLM up, chat + PDF upload works |
+| 3 | OpenTofu/Terraform: one VM, install **Docker Engine**, run Compose, volume + HTTPS |
+| 4 | Parameterize: `subscriber_id`, private vs public workspace flags |
+| 5 | Document “clone” = `tofu apply -var=subscriber_id=acme` |
+| 6 | (v2) Windows CAD worker + MCP + export-to-RAG path |
 
 ---
 
