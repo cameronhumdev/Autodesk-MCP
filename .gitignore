@@ -1,0 +1,49 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*~
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+session
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.envrc
+
+# Node
+node_modules/
+dist/
+build/
+.next/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+
+# Local CAD / temp
+*.ipt
+*.iam
+*.idw
+*.dwg
+*.dxf
+C:/temp/
+temp/
+tmp/
+
+# Logs
+*.log
+logs/
