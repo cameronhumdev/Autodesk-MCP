@@ -109,12 +109,23 @@ flowchart TD
 
 | # | Do |
 |---|----|
-| 1 | Local AnythingLLM (Compose OK) |
-| 2 | Terraform → K8s cluster |
-| 3 | K8s manifests / Helm + probes + PVC + Ingress |
-| 4 | Clone via `subscriber_id` |
-| 5 | Private vs public runbook |
+| 1 | **Done (scaffold):** modular folders + `test-ui` |
+| 2 | Local AnythingLLM (swap for `rag/local`) |
+| 3 | Terraform → K8s cluster |
+| 4 | K8s manifests / Helm + probes + PVC + Ingress |
+| 5 | Clone via `subscriber_id` |
 | 6 | v2: Windows CAD + MCP + export→RAG |
+
+## Repo modules
+
+| Folder | Replaceable piece |
+|--------|-------------------|
+| `rag/` | Knowledge backend |
+| `docker/` | Images / local Compose |
+| `k8s/` | Orchestration manifests |
+| `terraform/` | Infra modules |
+| `mcp/` | Inventor / AutoCAD |
+| `test-ui/` | Dev chat harness |
 
 ---
 

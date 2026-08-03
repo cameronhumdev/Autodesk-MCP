@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-ui
+  labels:
+    app: test-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-ui
+  template:
+    metadata:
+      labels:
+        app: test-ui
+    spec:
+      containers:
+        - name: test-ui
+          image: autodesk-mcp/test-ui:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: LLM_BASE_URL
+              value: "http://host.docker.internal:11434/v1"
+            - name: LLM_MODEL
+              value: "llama3.2"
+            - name: RAG_BACKEND
+              value: "local"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-ui
+spec:
+  selector:
+    app: test-ui
+  ports:
+    - port: 80
+      targetPort: 8080

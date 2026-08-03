@@ -47,6 +47,9 @@ C:/temp/
 temp/
 tmp/
 
+# Local RAG runtime index (re-seeded on empty)
+rag/local/data/index.json
+
 # Logs
 *.log
 logs/

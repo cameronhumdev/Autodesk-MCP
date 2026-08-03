@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Autodesk-MCP Test UI</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <aside>
+      <h2>Samples</h2>
+      <p class="meta">
+        From <a class="md-link" href="/api/samples/raw" target="_blank">SAMPLES.md</a>
+      </p>
+      <div id="samples"></div>
+      <h2>Status</h2>
+      <pre id="status" class="meta" style="white-space: pre-wrap; margin: 0"></pre>
+    </aside>
+    <main>
+      <header>
+        <h1>Autodesk-MCP Test UI</h1>
+        <span id="modeBadge" class="badge">…</span>
+      </header>
+      <div id="log"></div>
+      <form class="composer" id="form">
+        <textarea
+          id="input"
+          placeholder="Ask something, or click a sample…"
+          required
+        ></textarea>
+        <button class="send" type="submit" id="send">Send</button>
+      </form>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
