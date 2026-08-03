@@ -1,26 +1,23 @@
-# `k8s/` — Kubernetes manifests
+# `k8s/` — Kubernetes
 
-| Item | Value |
-|------|--------|
-| Role | Pods, probes, services, Ingress |
-| Provisioned by | Terraform / OpenTofu (`../terraform/`) |
-| Swap | Replace manifests/Helm chart; keep Service name `test-ui` stable for Ingress |
+| Path | Purpose |
+|------|---------|
+| `anythingllm/` | Demo: AnythingLLM in namespace `autodesk-mcp-demo` |
+| `test-ui/` | Optional smoke Deployment for our test UI |
 
-## Layout
+## Demo apply
 
-```text
-k8s/
-  README.md
-  test-ui/          # Dev / smoke Deployment for test-ui
-```
+Prefer: `demo\start-demo.bat`
 
-## Apply (after cluster exists)
+Manual:
 
 ```bash
-kubectl apply -f k8s/test-ui/
+kubectl apply -k k8s/anythingllm
+# UI via NodePort:
+# http://localhost:30080
 ```
 
-## Notes
+## Requires
 
-- Per-subscriber isolation later = Namespace + NetworkPolicy (`subscriber_id`).
-- CAD workers stay off Linux nodes (Windows v2).
+- Docker Desktop with **Kubernetes enabled**, or any kubeconfig cluster
+- Ollama on the host for local models (`host.docker.internal:11434`)

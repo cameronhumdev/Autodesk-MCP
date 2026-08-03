@@ -1,17 +1,23 @@
-# AnythingLLM backend (cloud default)
+# AnythingLLM
 
 | Item | Value |
 |------|--------|
 | Upstream | https://github.com/Mintplex-Labs/anything-llm |
 | License | MIT |
-| Deploy | Docker image on Kubernetes (see `k8s/`, `docker/`) |
+| Local UI | http://localhost:3080 |
 
-## Status
+## Start / stop (Windows)
 
-Hook folder for the production RAG. v1 test UI uses `rag/local` so you can chat without standing up AnythingLLM first.
+```text
+test-ui\start-anythingllm.bat
+test-ui\stop-anythingllm.bat
+```
 
-## Swap in later
+Needs Docker Desktop. Details: [`docs/TEST-BOTH-UIS.md`](../docs/TEST-BOTH-UIS.md)
 
-1. Run AnythingLLM via `docker/` or `k8s/`.
-2. Implement HTTP client against its API in `client.py` (add when ready).
-3. Set `RAG_BACKEND=anythingllm`.
+## Compose
+
+```bash
+cd docker
+docker compose -f compose.anythingllm.yml up -d
+```

@@ -9,21 +9,30 @@ Small UI to spin up, chat with an LLM, run sample actions, and hit local RAG.
 | RAG | `rag/local` by default (swappable) |
 | CAD | Mock tools only (v1) |
 
-## Run (no Docker)
+## Run (Windows)
+
+| Script | Opens |
+|--------|--------|
+| `start.bat` | Custom test UI → http://127.0.0.1:8080 |
+| `start-anythingllm.bat` | AnythingLLM (Docker) → http://localhost:3080 |
+| `setup-openai.bat` | Put OpenAI API key into `.env` (live chat) |
+| `setup-ollama.bat` | Point `.env` at local Ollama |
+| `stop-anythingllm.bat` | Stop AnythingLLM |
+
+Compare both: [`../docs/TEST-BOTH-UIS.md`](../docs/TEST-BOTH-UIS.md)
+
+Close the custom UI console window to stop that server.
+
+## Run (manual / WSL)
 
 ```bash
 # from repo root
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-# WSL/Ubuntu:
-source .venv/bin/activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r test-ui/requirements.txt
 cp test-ui/.env.example test-ui/.env
-# edit test-ui/.env — set LLM_BASE_URL / LLM_MODEL / LLM_API_KEY
 uvicorn test_ui_app.main:app --app-dir test-ui --reload --port 8080
 ```
-
-Open http://localhost:8080
 
 ## Run (Docker)
 

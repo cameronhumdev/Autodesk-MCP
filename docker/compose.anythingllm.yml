@@ -1,0 +1,21 @@
+# AnythingLLM — host port 3080 (3001 often taken)
+# Usage (from docker/):
+#   docker compose -f compose.anythingllm.yml up -d
+services:
+  anythingllm:
+    image: mintplexlabs/anythingllm:latest
+    container_name: anythingllm
+    ports:
+      - "3080:3001"
+    cap_add:
+      - SYS_ADMIN
+    environment:
+      STORAGE_DIR: /app/server/storage
+    volumes:
+      - anythingllm_storage:/app/server/storage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  anythingllm_storage:

@@ -15,26 +15,18 @@ Modular cloud AI stack: cloneable RAG, Docker images, Kubernetes, Terraform, Aut
 
 **Plan:** [PLAN.md](./PLAN.md)
 
-## Quick start — test UI
+## Quick start — full demo
 
-```bash
-# WSL2 Ubuntu / Linux — from repo root
-python -m venv .venv
-source .venv/bin/activate
-pip install -r test-ui/requirements.txt
-cp test-ui/.env.example test-ui/.env
-uvicorn test_ui_app.main:app --app-dir test-ui --reload --port 8080
-```
+1. Approve **UAC** if Docker install prompts.  
+2. Double-click [`demo/start-demo.bat`](./demo/start-demo.bat)
 
-Or:
+| UI | URL |
+|----|-----|
+| AnythingLLM (K8s NodePort) | http://localhost:30080 |
+| AnythingLLM (Compose fallback) | http://localhost:3080 |
+| Custom test UI | http://127.0.0.1:8080 via `test-ui\start.bat` |
 
-```bash
-cd docker && docker compose up --build
-```
-
-Open http://localhost:8080 — samples from [`test-ui/SAMPLES.md`](./test-ui/SAMPLES.md) appear in the sidebar.
-
-Works in **demo mode** without Ollama/OpenAI (mock LLM + real mock tools + local RAG).
+Details: [`demo/README.md`](./demo/README.md)
 
 ## Defaults (OSS)
 

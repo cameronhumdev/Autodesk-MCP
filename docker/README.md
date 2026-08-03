@@ -6,22 +6,30 @@
 | Production orchestration | Kubernetes (`../k8s/`) — not Compose |
 | Swap | Change Dockerfiles / compose services; keep image names stable where possible |
 
-## Quick start (test UI)
+## Quick start
 
 ```bash
-# from repo root (WSL2 Ubuntu or Linux)
 cd docker
-cp ../test-ui/.env.example ../test-ui/.env   # edit LLM settings
+# Custom test UI image
 docker compose up --build
+
+# AnythingLLM (official image)
+docker compose -f compose.anythingllm.yml up -d
 ```
 
-Open http://localhost:8080
+| URL | Service |
+|-----|---------|
+| http://localhost:8080 | test-ui |
+| http://localhost:3080 | AnythingLLM |
+
+Windows: use `test-ui\start.bat` / `start-anythingllm.bat`.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `compose.yml` | Local stack: test-ui (+ optional ollama) |
+| `compose.yml` | Local test-ui |
+| `compose.anythingllm.yml` | AnythingLLM |
 | `Dockerfile.test-ui` | Image for `test-ui/` |
 
 ## Env
