@@ -1,25 +1,34 @@
 # Plan — Autodesk MCP + cloneable RAG cloud
 
-## Docker vs Terraform (roles)
+## Docker + Compose + Terraform (all three)
 
-| | **Docker** | **Terraform** (or OpenTofu) |
-|--|------------|-----------------------------|
-| Job | Runs the apps in **containers** | **Creates** the cloud stuff those containers live on |
-| Handles | Start/stop, restart on crash, **healthchecks**, networks between containers, volumes for data | VMs/K8s/storage/DNS/firewalls, “what goes where”, one module per subscriber |
-| Does *not* | Provision whole cloud accounts / isolate tenants by itself | Stay running as the AI — it only apply/create/update infra |
-| AI brain | **AnythingLLM** runs *inside* a container | Terraform points that container at private storage + LLM endpoint, **separate per subscriber** |
+Yes — v1 uses **all three**. They stack; they don’t replace each other.
 
-**Short version:** Terraform spins up and links the boxes. Docker keeps the services running (and restarts unhealthy ones). AnythingLLM is the AI brain in a container; each subscriber’s data stays on their own volume/workspace.
+| | **Docker** (Engine) | **Docker Compose** | **Terraform / OpenTofu** |
+|--|---------------------|--------------------|---------------------------|
+| Job | The **runtime** that runs container images | The **app recipe** for one stack: which containers, how they link | The **cloud recipe** that creates the machine/network/storage and deploys that Compose stack per subscriber |
+| Handles | Pull images, create/run containers, cgroups/networking at engine level | `docker-compose.yml`: services, **networks**, **volumes**, **depends_on**, **healthchecks**, restart policies, env files | VMs (or similar), disks/buckets, DNS/TLS, firewalls, “what goes where”, `subscriber_id` clones |
+| Health / failure | Engine can restart a container if asked | **Where we define** healthchecks + restart + “wait for DB before AnythingLLM” | Can replace a whole dead VM / re-apply infra; not the day-to-day process supervisor |
+| AI brain | Runs the AnythingLLM **image** | Wires AnythingLLM (+ DB/vector/Ollama if local) as one unit | Places that Compose unit on isolated infra + private storage per subscriber |
+| Do we need it? | **Yes** — nothing runs without the engine | **Yes** (v1) — simplest way to run/link the AI stack with healthchecks | **Yes** (cloud) — how we clone and isolate subscribers |
+
+**Short version:**
+1. **Terraform/OpenTofu** — builds the box and storage (clone per subscriber).  
+2. **Docker Compose** — on that box, defines AnythingLLM (+ friends), networks, volumes, **healthchecks**, restarts.  
+3. **Docker Engine** — actually runs those containers.
+
+Local laptop testing can be Compose + Docker only (no Terraform). Cloud “clone a subscriber” adds Terraform/OpenTofu on top.
 
 **License / cost**
 
 | Tool | Free to use? |
 |------|----------------|
 | **Docker Engine** (Linux server) | Yes (open source). Docker *Desktop* on work PCs has its own company license rules. |
-| **Terraform** CLI | Yes — open source (BSL for HashiCorp Terraform; community often uses **OpenTofu**, a free open fork, same workflow). |
-| **Terraform Cloud** (HashiCorp SaaS) | Free tier exists; paid for teams — optional, not required. |
+| **Docker Compose** | Yes — free/OSS (Compose V2 plugin with Engine). |
+| **Terraform** CLI | Usable free; HashiCorp BSL. Many teams use **OpenTofu** (MPL-2.0 fork, same workflow). |
+| **Terraform Cloud** | Optional SaaS; free tier / paid teams — not required. |
 
-You can do this stack with **OpenTofu + Docker** at $0 software license cost (you still pay cloud compute).
+Software licenses for this trio can be $0; you still pay cloud compute.
 
 ---
 
@@ -56,18 +65,18 @@ flowchart LR
     T[OpenTofu / Terraform apply]
   end
   subgraph cloud [Cloud account]
-    VM[VM or container host]
+    VM[VM with Docker Engine]
     Vol[Private volume / bucket]
     DNS[HTTPS URL]
   end
-  subgraph docker [Docker on that host]
-    ALLM[AnythingLLM container]
-    LLM[Ollama or API config]
+  subgraph compose [Docker Compose on that VM]
+    ALLM[AnythingLLM]
+    LLM[Ollama or API sidecar]
   end
   T --> VM
   T --> Vol
   T --> DNS
-  T --> docker
+  T -->|install / run compose file| compose
   Vol --> ALLM
   LLM --> ALLM
   DNS --> ALLM
@@ -135,7 +144,8 @@ flowchart TD
 | Role | Choice | License |
 |------|--------|---------|
 | RAG / cloneable AI | AnythingLLM | MIT |
-| Containers | Docker + Compose | OSS |
+| Container runtime | Docker Engine | OSS |
+| App stack / healthchecks | Docker Compose | OSS |
 | Infra as code | OpenTofu (Terraform-compatible) | MPL-2.0 |
 | Inventor MCP (v2) | ipt-mcp | Apache-2.0 |
 | AutoCAD MCP (v2) | U-C4N Autocad-MCP | MIT |
