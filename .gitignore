@@ -1,3 +1,6 @@
+# Local research downloads (not for commit)
+.research/
+
 # OS / editor
 .DS_Store
 Thumbs.db
