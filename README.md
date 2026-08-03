@@ -7,6 +7,8 @@ Licenses below are the **open-source project licenses** (not Autodesk product li
 
 **Repo:** https://github.com/cameronhumdev/Autodesk-MCP
 
+**Start here for product decisions:** [TASK-FIT.md](./TASK-FIT.md) — multi-MCP strategy, what each option has *over* the others, and how RAG applies to the cloud / ChatGPT / open-LLM task.
+
 ---
 
 ## Do these work with any LLM?
