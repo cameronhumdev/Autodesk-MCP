@@ -23,7 +23,9 @@ else
   git remote set-url origin "$REPO_URL"
   git fetch origin
   git checkout "$BRANCH"
-  git pull --ff-only origin "$BRANCH"
+  # Deploy tree: match GitHub exactly (drop scp leftovers / local edits)
+  git reset --hard "origin/$BRANCH"
+  git clean -fd
 fi
 
 cd "$OPT_ROOT"
