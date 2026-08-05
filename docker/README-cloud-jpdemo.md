@@ -70,12 +70,22 @@ python -m client run
 
 Leave the tunnel window open while testing.
 
-## Update server after git push
+## Update + start (scripts)
+
+**From Windows (push + remote pull + tmux):**
+
+```powershell
+pwsh scripts\jpdemo-deploy.ps1
+# or: pwsh scripts\jpdemo-deploy.ps1 -NoPush
+# attach: pwsh scripts\jpdemo-deploy.ps1 -Attach
+```
+
+**On jp-demo:**
 
 ```bash
-cd /opt/adsk-mcp-cloud && git pull
-rsync -a --delete --exclude '.git' --exclude 'client/.bundles' \
-  /opt/adsk-mcp-cloud/ "$HOME/adsk-mcp-cloud/"
-cd "$HOME/adsk-mcp-cloud/docker"
-~/.docker/cli-plugins/docker-compose -f compose.cloud.yml up -d --build
+bash /opt/adsk-mcp-cloud/scripts/jpdemo-pull.sh   # git pull + rsync mirror
+bash /opt/adsk-mcp-cloud/scripts/jpdemo-tmux.sh   # tmux session `adsk-mcp`
+# attach later: tmux attach -t adsk-mcp
 ```
+
+tmux windows: `stack` (compose + gateway logs) · `anythingllm` · `git` · `health`
