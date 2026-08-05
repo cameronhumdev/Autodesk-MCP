@@ -23,8 +23,8 @@ demo\start-demo.bat
 | Service | URL |
 |---------|-----|
 | AnythingLLM | http://localhost:30080 |
-| Fallback Compose | http://localhost:3080 (`demo\start-demo-compose.bat`) |
-| Our test UI | http://127.0.0.1:8080 (`test-ui\start.bat`) |
+| Fallback Compose | http://127.0.0.1:3188 (`demo\start-demo-compose.bat`) |
+| Our test UI | http://127.0.0.1:8787 (`test-ui\start.bat`) |
 
 ## In the AnythingLLM UI (only manual step)
 

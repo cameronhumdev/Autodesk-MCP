@@ -73,7 +73,7 @@ if errorlevel 1 (
   echo In Docker Desktop: Settings -^> Kubernetes -^> Enable Kubernetes -^> Apply ^& Restart
   echo Then re-run this script.
   echo.
-  echo Meanwhile starting AnythingLLM with Compose on port 3080...
+  echo Meanwhile starting AnythingLLM with Compose on port 3188...
   call "%ROOT%\demo\start-demo-compose.bat"
   exit /b %ERRORLEVEL%
 )

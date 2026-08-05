@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 
-REM Fallback when K8s not enabled yet — Compose AnythingLLM on :3080
+REM Fallback when K8s not enabled yet — Compose AnythingLLM on :3188
 cd /d "%~dp0\..\docker"
 
 set "PATH=%ProgramFiles%\Docker\Docker\resources\bin;%PATH%"
@@ -27,7 +27,7 @@ if not errorlevel 1 (
   ollama pull qwen2.5:7b
 )
 
-echo Starting AnythingLLM ^(Compose^) on http://localhost:3080 ...
+echo Starting AnythingLLM ^(Compose^) on http://127.0.0.1:3188 ...
 docker compose -f compose.anythingllm.yml up -d
 if errorlevel 1 (
   echo Compose failed.
@@ -36,10 +36,10 @@ if errorlevel 1 (
 )
 
 echo.
-echo AnythingLLM: http://localhost:3080
+echo AnythingLLM: http://127.0.0.1:3188
 echo In UI: Settings -^> LLM -^> Ollama
 echo   URL: http://host.docker.internal:11434
 echo   Model: qwen2.5:7b
 echo.
-start "" "http://localhost:3080/"
+start "" "http://127.0.0.1:3188/"
 pause

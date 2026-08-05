@@ -10,7 +10,8 @@ Modular cloud AI stack: cloneable RAG, Docker images, Kubernetes, Terraform, Aut
 | [`docker/`](./docker/) | Images + local Compose | Yes |
 | [`k8s/`](./k8s/) | Kubernetes manifests | Yes |
 | [`terraform/`](./terraform/) | OpenTofu/Terraform modules | Yes |
-| [`mcp/`](./mcp/) | Inventor / AutoCAD MCP (v2) | Yes |
+| [`cad/`](./mcp/) | Inventor / AutoCAD MCP (v2) | Yes |
+| [`client/`](./client/) | Windows agent: local MCP paths or gateway download | Yes |
 | [`test-ui/`](./test-ui/) | Chat UI + mock tools + samples | Dev harness |
 
 **Plan:** [PLAN.md](./PLAN.md)
@@ -23,8 +24,8 @@ Modular cloud AI stack: cloneable RAG, Docker images, Kubernetes, Terraform, Aut
 | UI | URL |
 |----|-----|
 | AnythingLLM (K8s NodePort) | http://localhost:30080 |
-| AnythingLLM (Compose fallback) | http://localhost:3080 |
-| Custom test UI | http://127.0.0.1:8080 via `test-ui\start.bat` |
+| AnythingLLM (Compose fallback) | http://127.0.0.1:3188 |
+| Custom test UI | http://127.0.0.1:8787 via `test-ui\start.bat` |
 
 Details: [`demo/README.md`](./demo/README.md)
 

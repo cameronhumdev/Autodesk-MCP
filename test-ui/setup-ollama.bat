@@ -6,7 +6,7 @@ REM Default model: qwen2.5:7b — strong open tool-calling / instruct model.
 
 cd /d "%~dp0"
 set "ENVFILE=%CD%\.env"
-set "MODEL=qwen2.5:7b"
+set "MODEL=qwen2.5:3b"
 
 where ollama >nul 2>&1
 if errorlevel 1 (
@@ -34,14 +34,17 @@ if errorlevel 1 (
   echo.
   echo RAG_BACKEND=local
   echo HOST=0.0.0.0
-  echo PORT=8080
+  echo PORT=8787
 ) > "%ENVFILE%"
 
 echo.
 echo Wrote test-ui\.env  model=%MODEL%  mode=live
 echo Next: start.bat
 echo.
-echo Lighter PC:  ollama pull qwen2.5:3b   then set LLM_MODEL=qwen2.5:3b in .env
-echo Stronger PC: ollama pull qwen2.5:14b  then set LLM_MODEL=qwen2.5:14b in .env
+echo Fits 4GB GPU: qwen2.5:3b ^(default^)
+echo More VRAM:    ollama pull qwen2.5:7b  then set LLM_MODEL=qwen2.5:7b in .env
+echo.
+echo IMPORTANT: Close AnythingLLM Desktop built-in Ollama if chat stays on CPU.
+echo   It steals port 11434 with an old CPU engine. Use system Ollama instead.
 echo.
 pause

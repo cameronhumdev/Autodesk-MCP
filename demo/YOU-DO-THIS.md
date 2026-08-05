@@ -21,7 +21,7 @@ Double-click:
 demo\start-demo.bat
 ```
 
-If Kubernetes isn’t enabled yet, the script falls back to Compose on **http://localhost:3080**.
+If Kubernetes isn’t enabled yet, the script falls back to Compose on **http://127.0.0.1:3188**.
 
 For K8s UI: enable in Docker Desktop → Settings → Kubernetes → Apply & Restart, then re-run the script → **http://localhost:30080**.
 

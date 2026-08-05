@@ -34,7 +34,7 @@ REM Rewrite .env with OpenAI live settings (keep other lines if we can — simpl
   echo.
   echo RAG_BACKEND=local
   echo HOST=0.0.0.0
-  echo PORT=8080
+  echo PORT=8787
 ) > "%ENVFILE%"
 
 echo.

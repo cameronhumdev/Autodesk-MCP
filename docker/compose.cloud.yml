@@ -1,0 +1,36 @@
+# Cloud stack for Linux hosts (e.g. jp-demo /opt/adsk-mcp-cloud)
+# Snap Docker cannot bind-mount /opt — gateway is built into an image instead.
+#
+#   cd /opt/adsk-mcp-cloud/docker
+#   ~/.docker/cli-plugins/docker-compose -f compose.cloud.yml up -d --build
+#
+# AnythingLLM: http://HOST:3188
+# Gateway:     http://HOST:8790
+services:
+  anythingllm:
+    image: mintplexlabs/anythingllm:latest
+    container_name: adsk-mcp-anythingllm
+    ports:
+      - "3188:3001"
+    cap_add:
+      - SYS_ADMIN
+    environment:
+      STORAGE_DIR: /app/server/storage
+    volumes:
+      - anythingllm_storage:/app/server/storage
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gateway
+    image: adsk-mcp-gateway:local
+    container_name: adsk-mcp-gateway
+    ports:
+      - "8790:8790"
+    environment:
+      PYTHONUNBUFFERED: "1"
+    restart: unless-stopped
+
+volumes:
+  anythingllm_storage:

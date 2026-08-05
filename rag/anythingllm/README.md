@@ -4,7 +4,7 @@
 |------|--------|
 | Upstream | https://github.com/Mintplex-Labs/anything-llm |
 | License | MIT |
-| Local UI | http://localhost:3080 |
+| Local UI | http://127.0.0.1:3188 |
 
 ## Start / stop (Windows)
 

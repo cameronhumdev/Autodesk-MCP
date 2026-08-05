@@ -2,8 +2,8 @@
 
 | UI | What it is | URL | Start |
 |----|------------|-----|--------|
-| **Custom test UI** | Our thin playground (mock CAD + local RAG) | http://127.0.0.1:8080 | `test-ui\start.bat` |
-| **AnythingLLM** | Real product UI (docs, workspaces, MCP-ready) | http://localhost:3080 | `test-ui\start-anythingllm.bat` |
+| **Custom test UI** | Our thin playground (mock CAD + local RAG) | http://127.0.0.1:8787 | `test-ui\start.bat` |
+| **AnythingLLM** | Real product UI (docs, workspaces, MCP-ready) | http://127.0.0.1:3188 | `test-ui\start-anythingllm.bat` |
 
 ### Real LLM (not demo mode)
 
@@ -23,7 +23,7 @@ Run them at the same time — different ports.
 ## A. Custom test UI
 
 1. Double-click `test-ui\start.bat`
-2. Open http://127.0.0.1:8080
+2. Open http://127.0.0.1:8787
 3. Use sidebar samples (RAG + mock Inventor/AutoCAD tools)
 4. Close the console window to stop
 
@@ -36,7 +36,7 @@ No Docker required. Demo mode works without Ollama.
 **Needs:** Docker Desktop running.
 
 1. Double-click `test-ui\start-anythingllm.bat`
-2. Open http://localhost:3080
+2. Open http://127.0.0.1:3188
 3. Finish onboarding → pick an LLM (OpenAI key **or** Ollama at `http://host.docker.internal:11434`)
 4. Create a workspace → upload a PDF → chat
 5. Stop: `test-ui\stop-anythingllm.bat`

@@ -1,12 +1,13 @@
-# AnythingLLM — host port 3080 (3001 often taken)
+# AnythingLLM — host port 3188 (avoid 3000/3001 clashes with other apps)
 # Usage (from docker/):
 #   docker compose -f compose.anythingllm.yml up -d
+# UI: http://127.0.0.1:3188
 services:
   anythingllm:
     image: mintplexlabs/anythingllm:latest
     container_name: anythingllm
     ports:
-      - "3080:3001"
+      - "3188:3001"
     cap_add:
       - SYS_ADMIN
     environment:

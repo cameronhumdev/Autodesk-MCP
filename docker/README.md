@@ -19,8 +19,8 @@ docker compose -f compose.anythingllm.yml up -d
 
 | URL | Service |
 |-----|---------|
-| http://localhost:8080 | test-ui |
-| http://localhost:3080 | AnythingLLM |
+| http://127.0.0.1:8787 | test-ui |
+| http://127.0.0.1:3188 | AnythingLLM |
 
 Windows: use `test-ui\start.bat` / `start-anythingllm.bat`.
 

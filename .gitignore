@@ -1,6 +1,12 @@
 # Local research downloads (not for commit)
 .research/
 
+# Vendored upstream MCP sources (clone locally; do not commit build trees)
+vendor/
+
+# Client agent download cache / runtime env
+client/.bundles/
+
 # OS / editor
 .DS_Store
 Thumbs.db
@@ -49,6 +55,10 @@ tmp/
 
 # Local RAG runtime index (re-seeded on empty)
 rag/local/data/index.json
+
+# Persisted test-ui chat history + local LLM settings (may contain API keys)
+test-ui/data/chats/
+test-ui/data/llm-settings.json
 
 # Logs
 *.log

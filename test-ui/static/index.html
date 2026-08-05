@@ -3,34 +3,173 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Autodesk-MCP Test UI</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <title>Autodesk-MCP</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png?v=5" />
+    <link rel="apple-touch-icon" href="/static/apple-touch-icon.png?v=5" />
+    <meta name="theme-color" content="#b71c1c" />
+    <link rel="stylesheet" href="/static/styles.css?v=24" />
   </head>
   <body>
     <aside>
-      <h2>Samples</h2>
-      <p class="meta">
-        From <a class="md-link" href="/api/samples/raw" target="_blank">SAMPLES.md</a>
-      </p>
-      <div id="samples"></div>
-      <h2>Status</h2>
-      <pre id="status" class="meta" style="white-space: pre-wrap; margin: 0"></pre>
+      <div class="track-toggle" role="group" aria-label="CAD track">
+        <button type="button" id="trackInventor" class="track-btn active" data-track="inventor">
+          Inventor
+        </button>
+        <button type="button" id="trackAutocad" class="track-btn" data-track="autocad">
+          AutoCAD
+        </button>
+      </div>
+
+      <label
+        class="kit-toggle"
+        title="Restrict tools to CAD launch + base modelling (box/boolean or sketch/extrude) + zoom/screenshot. Toggle off for the full MCP surface — same model, apples-to-apples."
+      >
+        <input type="checkbox" id="baseModellingKit" />
+        <span class="kit-toggle-text">
+          <span class="kit-toggle-title">Base modelling kit</span>
+          <span class="kit-toggle-sub">Restricted tools</span>
+        </span>
+      </label>
+
+      <section id="chatsPanel" class="aside-panel active">
+        <div class="aside-row">
+          <h2>Chats</h2>
+          <button type="button" id="newChat" class="mini-btn">New</button>
+        </div>
+        <div class="chat-filter" role="group" aria-label="Filter chats by CAD mode">
+          <button type="button" class="filter-btn active" data-filter="all">All</button>
+          <button type="button" class="filter-btn" data-filter="inventor">Inventor</button>
+          <button type="button" class="filter-btn" data-filter="autocad">AutoCAD</button>
+        </div>
+        <div id="chats" class="chats"></div>
+      </section>
+
+      <div id="modelFooter" class="model-footer">
+        <div class="model-footer-text">
+          <span class="model-footer-label">Model</span>
+          <span id="modelFooterName" class="model-footer-name">…</span>
+        </div>
+        <button
+          type="button"
+          id="llmSettingsBtn"
+          class="model-settings-btn"
+          title="LLM settings — provider / API key"
+          aria-label="LLM settings"
+        >
+          <svg
+            class="model-settings-icon"
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path
+              fill="currentColor"
+              d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.07 7.07 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.5.42l-.36 2.54c-.58.24-1.13.55-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.48a.5.5 0 0 0 .12.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.82 14.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.43.34.68.22l2.39-.96c.5.39 1.05.71 1.63.94l.36 2.54c.05.24.26.42.5.42h3.8c.24 0 .45-.18.5-.42l.36-2.54c.58-.24 1.13-.55 1.63-.94l2.39.96c.25.12.54.02.68-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"
+            />
+          </svg>
+        </button>
+      </div>
     </aside>
+
+    <div id="llmSettingsModal" class="modal" hidden>
+      <div class="modal-backdrop" data-close-llm-settings></div>
+      <div
+        class="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="llmSettingsTitle"
+      >
+        <header class="modal-header">
+          <h2 id="llmSettingsTitle">LLM settings</h2>
+          <button
+            type="button"
+            class="mini-btn"
+            data-close-llm-settings
+            aria-label="Close"
+          >
+            Close
+          </button>
+        </header>
+        <form id="llmSettingsForm" class="llm-settings-form">
+          <label class="field">
+            <span>Provider</span>
+            <select id="llmProvider" name="provider">
+              <option value="claude">Claude (Anthropic)</option>
+              <option value="openai">OpenAI</option>
+              <option value="ollama">Ollama (local)</option>
+              <option value="custom">Custom (OpenAI-compatible)</option>
+            </select>
+          </label>
+          <p id="llmHelp" class="field-help"></p>
+          <label class="field">
+            <span>Model</span>
+            <select id="llmModelSelect" name="model_select"></select>
+          </label>
+          <label class="field" id="llmModelCustomWrap" hidden>
+            <span>Custom model id</span>
+            <input
+              id="llmModelCustom"
+              name="model_custom"
+              type="text"
+              autocomplete="off"
+              placeholder="e.g. claude-sonnet-4-6"
+            />
+          </label>
+          <label class="field">
+            <span>Base URL</span>
+            <input id="llmBaseUrl" name="base_url" type="text" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>API key</span>
+            <input
+              id="llmApiKey"
+              name="api_key"
+              type="password"
+              autocomplete="off"
+              placeholder="Paste key — leave blank to keep saved key"
+            />
+          </label>
+          <p id="llmKeyHint" class="field-help"></p>
+          <label class="field field-check">
+            <input id="llmClearKey" type="checkbox" />
+            <span>Clear saved API key</span>
+          </label>
+          <div class="modal-actions">
+            <button type="submit" class="send" id="llmSave">Save</button>
+            <span id="llmSaveStatus" class="field-help" aria-live="polite"></span>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <main>
       <header>
-        <h1>Autodesk-MCP Test UI</h1>
+        <div class="header-left">
+          <h1 id="chatTitle">New chat</h1>
+          <span id="trackBadge" class="badge track-inventor">Inventor</span>
+          <span id="kitBadge" class="badge kit-on" hidden>Base modelling kit</span>
+        </div>
         <span id="modeBadge" class="badge">…</span>
       </header>
-      <div id="log"></div>
+      <div id="log" class="log">
+        <div class="log-inner">
+          <div class="log-top-spacer" aria-hidden="true"></div>
+          <div id="logMessages" class="log-messages"></div>
+        </div>
+      </div>
       <form class="composer" id="form">
         <textarea
           id="input"
-          placeholder="Ask something, or click a sample…"
+          placeholder="Ask something…"
           required
         ></textarea>
         <button class="send" type="submit" id="send">Send</button>
       </form>
     </main>
-    <script src="/static/app.js"></script>
+    <script src="/static/vendor/marked.min.js"></script>
+    <script src="/static/vendor/purify.min.js"></script>
+    <script src="/static/app.js?v=39"></script>
   </body>
 </html>

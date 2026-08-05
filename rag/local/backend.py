@@ -7,7 +7,6 @@ from pathlib import Path
 from rag.adapter import RagHit
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
-INDEX_PATH = DATA_DIR / "index.json"
 
 
 class LocalRagBackend:
@@ -16,17 +15,19 @@ class LocalRagBackend:
     def __init__(self, data_dir: Path | None = None) -> None:
         self.data_dir = data_dir or DATA_DIR
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.index_path = self.data_dir / "index.json"
         self._docs: dict[str, dict] = {}
         self._load()
+        self._ensure_product_docs()
 
     def _load(self) -> None:
-        if INDEX_PATH.exists():
-            self._docs = json.loads(INDEX_PATH.read_text(encoding="utf-8"))
+        if self.index_path.exists():
+            self._docs = json.loads(self.index_path.read_text(encoding="utf-8"))
         else:
             self._seed()
 
     def _save(self) -> None:
-        INDEX_PATH.write_text(json.dumps(self._docs, indent=2), encoding="utf-8")
+        self.index_path.write_text(json.dumps(self._docs, indent=2), encoding="utf-8")
 
     def _seed(self) -> None:
         self.ingest_text(
@@ -44,6 +45,20 @@ class LocalRagBackend:
             source="seed/layer-standard.txt",
         )
         self._save()
+
+    def _ensure_product_docs(self) -> None:
+        """Docs that should exist even on older local indexes."""
+        if "cad-tracks" in self._docs:
+            return
+        self.ingest_text(
+            "cad-tracks",
+            "Autodesk-MCP supports two separate CAD modes: Inventor and AutoCAD. "
+            "They are not one combined CAD tool. The UI has an Inventor / AutoCAD toggle. "
+            "The assistant may call request_track_switch to ask permission to change mode; "
+            "the user must Confirm or Cancel. Never claim the product only supports Inventor "
+            "or only AutoCAD.",
+            source="seed/cad-tracks.txt",
+        )
 
     def ingest_text(self, doc_id: str, text: str, source: str = "") -> None:
         self._docs[doc_id] = {"text": text.strip(), "source": source or doc_id}
