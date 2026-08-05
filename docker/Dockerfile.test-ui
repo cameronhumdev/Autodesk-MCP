@@ -6,13 +6,16 @@ COPY test-ui/requirements.txt /app/test-ui/requirements.txt
 RUN pip install --no-cache-dir -r /app/test-ui/requirements.txt
 
 COPY rag /app/rag
+COPY cad /app/cad
+COPY client /app/client
 COPY test-ui /app/test-ui
 
 ENV PYTHONPATH=/app
 ENV HOST=0.0.0.0
 ENV PORT=8080
 ENV RAG_BACKEND=local
-ENV LLM_MODE=auto
+ENV LLM_MODE=live
+ENV CAD_MODE=remote
 
 EXPOSE 8080
 

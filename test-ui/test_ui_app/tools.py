@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 import time
@@ -10,18 +11,44 @@ from urllib.parse import quote_plus, urlparse
 
 import httpx
 
+from .cad_remote import call_remote_tool, is_remote
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CAD_ROOT = REPO_ROOT / "cad"
 for p in (str(CAD_ROOT), str(REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from autocad import export_autocad_to_rag, get_autocad_backend  # noqa: E402
-from inventor import export_inventor_to_rag, get_inventor_backend  # noqa: E402
-from shared.launch_cad import is_running, launch_status, start_app  # noqa: E402
+_inventor = None
+_autocad = None
+export_autocad_to_rag = None  # type: ignore[assignment]
+export_inventor_to_rag = None  # type: ignore[assignment]
+is_running = None  # type: ignore[assignment]
+launch_status = None  # type: ignore[assignment]
+start_app = None  # type: ignore[assignment]
 
-_inventor = get_inventor_backend()
-_autocad = get_autocad_backend()
+if not is_remote():
+    from autocad import export_autocad_to_rag, get_autocad_backend  # noqa: E402
+    from inventor import export_inventor_to_rag, get_inventor_backend  # noqa: E402
+    from shared.launch_cad import is_running, launch_status, start_app  # noqa: E402
+
+    _inventor = get_inventor_backend()
+    _autocad = get_autocad_backend()
+else:
+    # Remote: launch helpers are stubbed; real work goes through the gateway.
+    def launch_status(app: str) -> dict:  # type: ignore[misc]
+        return call_remote_tool("__cad_launch_status__", {"app": app}, timeout_s=30)
+
+    def is_running(app: str) -> bool:  # type: ignore[misc]
+        st = launch_status(app)
+        return bool(st.get("running"))
+
+    def start_app(app: str, **kwargs):  # type: ignore[misc]
+        return call_remote_tool(
+            "__cad_launch__",
+            {"app": app, **kwargs},
+            timeout_s=180,
+        )
 
 _COM_FAIL_MARKERS = (
     ".count",
@@ -477,6 +504,21 @@ def _normalize_schema(schema: Any) -> dict[str, Any]:
 def _load_upstream_tools(track: str) -> list[dict[str, Any]]:
     if track in _upstream_cache:
         return _upstream_cache[track]
+    if is_remote():
+        try:
+            data = call_remote_tool("__list_tools__", {"track": track}, timeout_s=60)
+            tools = data.get("tools") if isinstance(data, dict) else []
+            if not isinstance(tools, list):
+                tools = []
+            if tools:
+                _upstream_cache[track] = tools
+                _upstream_error.pop(track, None)
+            else:
+                _upstream_error[track] = "remote agent returned no tools (is serve-agent running?)"
+            return tools
+        except Exception as exc:  # noqa: BLE001
+            _upstream_error[track] = f"{type(exc).__name__}: {exc}"
+            return []
     backend = _inventor if track == "inventor" else _autocad
     try:
         tools = backend.list_upstream_tools()
@@ -1030,6 +1072,17 @@ def ensure_autocad_ready(
     force_restart quits a zombie acad.exe first when COM/RPC is dead — callers
     should escalate to this only after a soft (MCP-only) recover fails.
     """
+    if is_remote():
+        return call_remote_tool(
+            "__cad_launch__",
+            {
+                "app": "autocad",
+                "wait_s": wait_s,
+                "drawing_path": drawing_path,
+                "force_restart": force_restart,
+            },
+            timeout_s=max(180.0, wait_s + 30),
+        )
     was_running = False
     try:
         was_running = bool(is_running("autocad"))
@@ -1078,6 +1131,16 @@ def ensure_inventor_ready(
     Start Inventor if needed, wait for the Bimwright add-in target, open a part,
     and reset the MCP stdio session when needed.
     """
+    if is_remote():
+        return call_remote_tool(
+            "__cad_launch__",
+            {
+                "app": "inventor",
+                "wait_s": wait_s,
+                "force_restart": force_restart,
+            },
+            timeout_s=max(180.0, wait_s + 30),
+        )
     was_running = False
     try:
         was_running = bool(is_running("inventor"))
@@ -1266,6 +1329,17 @@ def force_restart_autocad_confirmed(
     reason: str | None = None,
 ) -> dict[str, Any]:
     """Perform taskkill + relaunch only after UI Confirm (API gate)."""
+    if is_remote():
+        return call_remote_tool(
+            "__cad_force_restart__",
+            {
+                "app": "autocad",
+                "reason": (reason or "").strip() or "User confirmed AutoCAD quit/restart.",
+                "wait_s": wait_s,
+                "drawing_path": drawing_path,
+            },
+            timeout_s=max(180.0, wait_s + 30),
+        )
     why = (reason or "").strip() or "User confirmed AutoCAD quit/restart."
     ready = ensure_autocad_ready(
         force_reset=True,
@@ -1432,6 +1506,16 @@ def force_restart_inventor_confirmed(
     reason: str | None = None,
 ) -> dict[str, Any]:
     """Perform taskkill + relaunch only after UI Confirm (API gate)."""
+    if is_remote():
+        return call_remote_tool(
+            "__cad_force_restart__",
+            {
+                "app": "inventor",
+                "reason": (reason or "").strip() or "User confirmed Inventor quit/restart.",
+                "wait_s": wait_s,
+            },
+            timeout_s=max(180.0, wait_s + 30),
+        )
     why = (reason or "").strip() or "User confirmed Inventor quit/restart."
     ready = ensure_inventor_ready(
         force_reset=True,
@@ -1499,6 +1583,9 @@ def recover_inventor(args: dict | None = None) -> dict[str, Any]:
 
 
 def _call_inventor_upstream(name: str, args: dict) -> Any:
+    if is_remote():
+        return call_remote_tool(name, args, timeout_s=120)
+    assert _inventor is not None
     try:
         result = _inventor.call_upstream_tool(name, args)
     except Exception as exc:  # noqa: BLE001
@@ -1570,6 +1657,9 @@ def _call_inventor_upstream(name: str, args: dict) -> Any:
 
 
 def _call_autocad_upstream(llm_name: str, args: dict) -> Any:
+    if is_remote():
+        return call_remote_tool(llm_name, args, timeout_s=120)
+    assert _autocad is not None
     upstream = llm_name[8:] if llm_name.startswith("autocad_") else llm_name
     try:
         result = _autocad.call_upstream_tool(upstream, args)
@@ -2064,6 +2154,28 @@ def run_tool(dispatch: dict[str, Callable[[dict], Any]], name: str, arguments: s
 def track_status() -> dict[str, Any]:
     """Best-effort CAD status — never fail the UI status endpoint."""
     out: dict[str, Any] = {}
+    if is_remote():
+        from .cad_remote import agent_status
+
+        st = agent_status()
+        out["inventor"] = {
+            "track": "inventor",
+            "backend": "remote-agent",
+            "agent_online": st.get("agent_online"),
+            "gateway": st.get("gateway"),
+        }
+        out["autocad"] = {
+            "track": "autocad",
+            "backend": "remote-agent",
+            "agent_online": st.get("agent_online"),
+            "gateway": st.get("gateway"),
+        }
+        out["upstream_tools"] = {
+            "inventor_count": "remote",
+            "autocad_count": "remote",
+            "errors": {},
+        }
+        return out
     try:
         out["inventor"] = _inventor.status()
     except Exception as exc:  # noqa: BLE001

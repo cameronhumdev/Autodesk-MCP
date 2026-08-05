@@ -28,20 +28,17 @@ from test_ui_app.llm import chat as llm_chat, resolve_mode  # noqa: E402
 
 # UI-saved LLM settings override .env for this process (no restart needed on Save).
 llm_settings.bootstrap()
+from test_ui_app.cad_remote import agent_status, is_remote  # noqa: E402
 from test_ui_app.tools import (  # noqa: E402
     build_dispatch,
     ensure_autocad_ready,
     ensure_inventor_ready,
     force_restart_autocad_confirmed,
     force_restart_inventor_confirmed,
+    launch_status,
     tool_specs,
     track_status,
 )
-
-CAD_ROOT = REPO_ROOT / "cad"
-if str(CAD_ROOT) not in sys.path:
-    sys.path.insert(0, str(CAD_ROOT))
-from shared.launch_cad import launch_status  # noqa: E402
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 
@@ -149,6 +146,8 @@ async def status():
         "llm_api_key_set": llm.get("api_key_set"),
         "llm_api_key_hint": llm.get("api_key_hint"),
         "rag": rag.status(),
+        "cad_mode": "remote" if is_remote() else "local",
+        "cad_agent": agent_status(),
         "tracks": tracks,
         "inventor_backend": os.getenv("INVENTOR_BACKEND", "mcp"),
         "autocad_backend": os.getenv("AUTOCAD_BACKEND", "mcp"),
@@ -323,6 +322,8 @@ def _persist_chat_result(body: ChatRequest, track: str, result: dict) -> dict:
             assistant["pending_switch"] = result["pending_switch"]
         if result.get("pending_launch"):
             assistant["pending_launch"] = result["pending_launch"]
+        if result.get("usage"):
+            assistant["usage"] = result["usage"]
         stored.append(assistant)
     chats_mod.save_chat(
         chat_id,

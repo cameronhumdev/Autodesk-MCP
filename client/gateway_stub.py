@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import secrets
 import socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -13,10 +14,12 @@ from urllib.parse import parse_qs, urlparse
 
 from .config import REPO_ROOT
 from .download import build_track_zip
+from .relay import HUB
 
 _SESSIONS: dict[str, dict] = {}
 _BUNDLES: dict[str, Path] = {}
 _VERSION = "0.1.0-dev"
+_SERVICE_KEY = (os.getenv("CAD_SERVICE_KEY") or "dev-cloud").strip()
 
 
 def _file_sha256(path: Path) -> str:
@@ -61,10 +64,50 @@ class Handler(BaseHTTPRequestHandler):
             return auth.split(" ", 1)[1].strip()
         return None
 
+    def _tenant(self) -> str | None:
+        token = self._token()
+        if not token or token not in _SESSIONS:
+            return None
+        return str(_SESSIONS[token].get("tenant_id") or "dev")
+
+    def _service_ok(self) -> bool:
+        key = self.headers.get("X-Service-Key") or ""
+        return bool(_SERVICE_KEY) and key == _SERVICE_KEY
+
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         if parsed.path == "/v1/health":
-            self._json(200, {"ok": True, "service": "dc-cad-gateway-stub", "version": _VERSION})
+            self._json(
+                200,
+                {
+                    "ok": True,
+                    "service": "dc-cad-gateway-stub",
+                    "version": _VERSION,
+                    "agent_online": HUB.agent_online("dev"),
+                },
+            )
+            return
+        if parsed.path == "/v1/agent/status":
+            tenant = self._tenant() or "dev"
+            self._json(
+                200,
+                {
+                    "ok": True,
+                    "tenant_id": tenant,
+                    "agent_online": HUB.agent_online(tenant),
+                },
+            )
+            return
+        if parsed.path == "/v1/agent/poll":
+            tenant = self._tenant()
+            if not tenant:
+                self._json(401, {"error": "invalid session"})
+                return
+            qs = parse_qs(parsed.query)
+            wait_s = float((qs.get("wait") or ["25"])[0])
+            HUB.agent_hello(tenant)
+            job = HUB.poll(tenant, wait_s=wait_s)
+            self._json(200, {"ok": True, "job": job})
             return
         if parsed.path == "/v1/bundles/manifest":
             qs = parse_qs(parsed.query)
@@ -122,7 +165,57 @@ class Handler(BaseHTTPRequestHandler):
             if not token or token not in _SESSIONS:
                 self._json(401, {"error": "invalid session"})
                 return
-            self._json(200, {"ok": True, "tenant_id": _SESSIONS[token]["tenant_id"]})
+            tenant = str(_SESSIONS[token]["tenant_id"])
+            HUB.agent_heartbeat(tenant)
+            self._json(200, {"ok": True, "tenant_id": tenant})
+            return
+        if parsed.path == "/v1/agent/hello":
+            tenant = self._tenant()
+            if not tenant:
+                self._json(401, {"error": "invalid session"})
+                return
+            body = self._read_json()
+            HUB.agent_hello(tenant, meta=body.get("meta") or {})
+            self._json(200, {"ok": True, "tenant_id": tenant})
+            return
+        if parsed.path == "/v1/agent/result":
+            tenant = self._tenant()
+            if not tenant:
+                self._json(401, {"error": "invalid session"})
+                return
+            body = self._read_json()
+            job_id = str(body.get("id") or "")
+            ok = bool(body.get("ok", True))
+            if not job_id:
+                self._json(400, {"error": "id required"})
+                return
+            found = HUB.submit_result(
+                job_id,
+                ok=ok,
+                result=body.get("result"),
+                error=body.get("error"),
+            )
+            if not found:
+                self._json(404, {"error": "unknown job"})
+                return
+            self._json(200, {"ok": True})
+            return
+        if parsed.path == "/v1/tools/call":
+            if not self._service_ok():
+                self._json(401, {"error": "invalid service key"})
+                return
+            body = self._read_json()
+            tool = str(body.get("tool") or "").strip()
+            if not tool:
+                self._json(400, {"error": "tool required"})
+                return
+            args = body.get("arguments")
+            if not isinstance(args, dict):
+                args = {}
+            tenant = str(body.get("tenant_id") or "dev")
+            timeout_s = float(body.get("timeout_s") or 120)
+            result = HUB.call_tool(tool, args, tenant_id=tenant, timeout_s=timeout_s)
+            self._json(200, result)
             return
         self._json(404, {"error": "not found"})
 
@@ -150,6 +243,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Gateway stub listening on http://{args.host}:{args.port}", flush=True)
     print("  GET  /v1/health", flush=True)
     print("  POST /v1/session/activate", flush=True)
+    print("  GET  /v1/agent/poll  (+ hello/result) — laptop CAD agent", flush=True)
+    print("  POST /v1/tools/call — cloud UI → laptop (X-Service-Key)", flush=True)
     print("  GET  /v1/bundles/manifest", flush=True)
     try:
         httpd.serve_forever()

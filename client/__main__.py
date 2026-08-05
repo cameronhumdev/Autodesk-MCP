@@ -20,6 +20,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("ensure", help="Resolve MCP paths (local relative or cloud download)")
     sub.add_parser("connect", help="Outbound gateway activate + heartbeat")
     sub.add_parser("run", help="ensure + connect + write runtime env")
+    sub.add_parser(
+        "serve-agent",
+        help="Laptop CAD agent: long-poll jp-demo gateway and run local MCP tools",
+    )
     g = sub.add_parser("gateway", help="Run local gateway stub (dev)")
     g.add_argument("--host", default="127.0.0.1")
     g.add_argument("--port", type=int, default=8790)
@@ -30,6 +34,11 @@ def main(argv: list[str] | None = None) -> int:
         from client.gateway_stub import main as gw_main
 
         return gw_main(["--host", args.host, "--port", str(args.port)])
+
+    if args.cmd == "serve-agent":
+        from client.agent_worker import serve_agent
+
+        return serve_agent()
 
     from client.agent import ClientAgent
     from client.config import load_config

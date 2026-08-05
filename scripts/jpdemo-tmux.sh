@@ -77,8 +77,10 @@ tmux send-keys -t "$SESSION:health" \
 tmux select-window -t "$SESSION:stack"
 
 echo "URLs (on jp-demo / LAN):"
+echo "  Chat UI      http://192.168.1.169:8787"
 echo "  AnythingLLM  http://192.168.1.169:3188"
 echo "  Gateway      http://192.168.1.169:8790/v1/health"
+echo "Laptop agent:  GATEWAY_URL=http://192.168.1.169:8790  python -m client serve-agent"
 echo "Attach: tmux attach -t $SESSION   (detach: Ctrl-b d)"
 
 if [ "${ATTACH:-1}" = "1" ] && [ -z "${TMUX:-}" ]; then

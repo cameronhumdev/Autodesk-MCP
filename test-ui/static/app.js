@@ -298,7 +298,8 @@ function renderMessages() {
         m.actions,
         m.pending_switch,
         m.elapsed_ms,
-        m.pending_launch
+        m.pending_launch,
+        m.usage
       );
     }
   }
@@ -460,17 +461,28 @@ function resolvePending(messageOrPending, actions, content, activeTrack) {
   );
 }
 
-function buildWorkedDetails(actions, elapsedMs) {
+function formatUsage(usage) {
+  if (!usage) return "";
+  const inn = Number(usage.input_tokens || 0);
+  const out = Number(usage.output_tokens || 0);
+  const tot = Number(usage.total_tokens || inn + out);
+  if (!inn && !out && !tot) return "";
+  return ` · ${inn.toLocaleString()} in / ${out.toLocaleString()} out` +
+    (tot ? ` (${tot.toLocaleString()} tok)` : "");
+}
+
+function buildWorkedDetails(actions, elapsedMs, usage) {
   const details = document.createElement("details");
   details.className = "worked";
   const summary = document.createElement("summary");
   const n = (actions || []).length;
+  const usageBit = formatUsage(usage);
   const label =
     n === 0
-      ? `Worked for ${formatDuration(elapsedMs)}`
+      ? `Worked for ${formatDuration(elapsedMs)}${usageBit}`
       : n === 1
-        ? `Worked for ${formatDuration(elapsedMs)} · 1 tool`
-        : `Worked for ${formatDuration(elapsedMs)} · ${n} tools`;
+        ? `Worked for ${formatDuration(elapsedMs)} · 1 tool${usageBit}`
+        : `Worked for ${formatDuration(elapsedMs)} · ${n} tools${usageBit}`;
   const labelEl = document.createElement("span");
   labelEl.className = "worked-label";
   labelEl.textContent = label;
@@ -484,6 +496,16 @@ function buildWorkedDetails(actions, elapsedMs) {
 
   const body = document.createElement("div");
   body.className = "worked-body";
+  if (usage && (usage.input_tokens || usage.output_tokens || usage.total_tokens)) {
+    const urow = document.createElement("div");
+    urow.className = "worked-empty";
+    urow.textContent =
+      `Tokens — input: ${Number(usage.input_tokens || 0).toLocaleString()}, ` +
+      `output: ${Number(usage.output_tokens || 0).toLocaleString()}, ` +
+      `total: ${Number(usage.total_tokens || 0).toLocaleString()}` +
+      (usage.llm_calls ? ` · ${usage.llm_calls} LLM call(s)` : "");
+    body.appendChild(urow);
+  }
   if (!n) {
     const empty = document.createElement("div");
     empty.className = "worked-empty";
@@ -524,7 +546,7 @@ function buildWorkedDetails(actions, elapsedMs) {
   return details;
 }
 
-function addMessage(role, content, actions, pendingSwitch, elapsedMs, pendingLaunch) {
+function addMessage(role, content, actions, pendingSwitch, elapsedMs, pendingLaunch, usage) {
   const div = document.createElement("div");
   div.className = `msg ${role}`;
   const roleEl = document.createElement("div");
@@ -533,8 +555,8 @@ function addMessage(role, content, actions, pendingSwitch, elapsedMs, pendingLau
   div.appendChild(roleEl);
 
   const actionList = actions || [];
-  if (role === "assistant" && (actionList.length || elapsedMs > 0)) {
-    div.appendChild(buildWorkedDetails(actionList, elapsedMs || 0));
+  if (role === "assistant" && (actionList.length || elapsedMs > 0 || usage)) {
+    div.appendChild(buildWorkedDetails(actionList, elapsedMs || 0, usage));
   }
 
   const body = document.createElement("div");
@@ -1647,6 +1669,7 @@ async function continueChat(opts = null) {
   abortControllers.set(requestChatId, ac);
   let wasAborted = false;
   const liveActions = [];
+  let liveUsage = null;
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
@@ -1671,7 +1694,14 @@ async function continueChat(opts = null) {
     const data =
       (await readChatSse(res, (event) => {
         if (chatId !== requestChatId) return;
-        if (event.type === "tool_start") {
+        if (event.type === "usage") {
+          liveUsage = {
+            input_tokens: event.input_tokens || 0,
+            output_tokens: event.output_tokens || 0,
+            total_tokens: event.total_tokens || 0,
+            llm_calls: event.llm_calls || 0,
+          };
+        } else if (event.type === "tool_start") {
           liveActions.push({
             tool: event.tool,
             arguments: event.arguments || {},
@@ -1696,6 +1726,7 @@ async function continueChat(opts = null) {
 
     const elapsedMs = performance.now() - started;
     const actions = data.actions || liveActions.filter((a) => !a.pending);
+    const usage = data.usage || liveUsage || undefined;
 
     let assistantMsg;
     if (data.error) {
@@ -1704,6 +1735,7 @@ async function continueChat(opts = null) {
         content: data.error,
         actions,
         elapsed_ms: elapsedMs,
+        usage,
       };
     } else {
       const reply = data.reply || "(empty reply)";
@@ -1718,6 +1750,7 @@ async function continueChat(opts = null) {
         pending_switch: pending || undefined,
         pending_launch: pendingLaunch || undefined,
         elapsed_ms: elapsedMs,
+        usage,
       };
     }
 
@@ -1752,7 +1785,8 @@ async function continueChat(opts = null) {
         assistantMsg.actions,
         assistantMsg.pending_switch,
         elapsedMs,
-        assistantMsg.pending_launch
+        assistantMsg.pending_launch,
+        assistantMsg.usage
       );
       modeBadge.textContent = data.mode || modeBadge.textContent;
       modeBadge.className = `badge ${data.mode === "live" ? "live" : "demo"}`;

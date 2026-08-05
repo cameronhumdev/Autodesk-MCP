@@ -1160,6 +1160,26 @@ async def chat(
     }
     working = [system, *working]
     tools = tool_specs(track, base_modelling_kit=base_modelling_kit)
+    usage_acc = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+        "llm_calls": 0,
+    }
+
+    def _with_usage(payload: dict[str, Any]) -> dict[str, Any]:
+        if usage_acc["llm_calls"]:
+            payload = {
+                **payload,
+                "usage": {
+                    "input_tokens": usage_acc["input_tokens"],
+                    "output_tokens": usage_acc["output_tokens"],
+                    "total_tokens": usage_acc["total_tokens"],
+                    "llm_calls": usage_acc["llm_calls"],
+                },
+            }
+        return payload
+
     forced_schema_retries = 0
     forced_modeling_retries = 0
     forced_research_retries = 0
@@ -1173,13 +1193,13 @@ async def chat(
         # (client disconnect), or launch/switch Confirm is needed.
         while True:
             if await _cancelled():
-                return {
+                return _with_usage({
                     "mode": "live",
                     "track": track,
                     "reply": "Stopped.",
                     "actions": actions,
                     "stopped": True,
-                }
+                })
             payload: dict[str, Any] = {
                 "model": model,
                 "messages": working,
@@ -1209,23 +1229,41 @@ async def chat(
                     f"{base}/chat/completions", headers=headers, json=payload
                 )
             if r.status_code >= 400:
-                return {
+                return _with_usage({
                     "mode": "live",
                     "track": track,
                     "error": f"LLM error {r.status_code}: {r.text[:500]}",
                     "reply": "",
                     "actions": actions,
-                }
+                })
             data = r.json()
+            u = data.get("usage") or {}
+            inn = int(u.get("prompt_tokens") or u.get("input_tokens") or 0)
+            outt = int(u.get("completion_tokens") or u.get("output_tokens") or 0)
+            tot = int(u.get("total_tokens") or 0) or (inn + outt)
+            if inn or outt or tot:
+                usage_acc["input_tokens"] += inn
+                usage_acc["output_tokens"] += outt
+                usage_acc["total_tokens"] += tot
+                usage_acc["llm_calls"] += 1
+                await _emit(
+                    {
+                        "type": "usage",
+                        "input_tokens": usage_acc["input_tokens"],
+                        "output_tokens": usage_acc["output_tokens"],
+                        "total_tokens": usage_acc["total_tokens"],
+                        "llm_calls": usage_acc["llm_calls"],
+                    }
+                )
             choices = data.get("choices") or []
             if not choices:
-                return {
+                return _with_usage({
                     "mode": "live",
                     "track": track,
                     "error": f"LLM returned no choices: {str(data)[:500]}",
                     "reply": "",
                     "actions": actions,
-                }
+                })
             choice = choices[0].get("message") or {}
             content = choice.get("content") or ""
             tool_calls = choice.get("tool_calls") or []
@@ -1359,13 +1397,13 @@ async def chat(
                     actions.extend(switch_actions)
                     if "confirm" not in reply.lower():
                         reply = f"{reply}\n\n{_switch_reply(pending)}".strip()
-                    return {
+                    return _with_usage({
                         "mode": "live",
                         "track": track,
                         "reply": reply,
                         "actions": actions,
                         "pending_switch": pending,
-                    }
+                    })
                 # Launch is tool-only — never force from regex / prose heuristics.
                 # Avoid empty bubbles after web research (small models often go blank).
                 if (not reply or reply == "(empty reply)") and _has_web_actions(
@@ -1411,12 +1449,12 @@ async def chat(
                             "I looked that up online — see the web_search results "
                             "in Worked for sources."
                         )
-                return {
+                return _with_usage({
                     "mode": "live",
                     "track": track,
                     "reply": reply,
                     "actions": actions,
-                }
+                })
             allowed = {t["function"]["name"] for t in tools}
             for call in tool_calls:
                 fn = (call.get("function") or {}).get("name") or "unknown"
@@ -1472,13 +1510,13 @@ async def chat(
                                         "result": a.get("result"),
                                     }
                                 )
-                            return {
+                            return _with_usage({
                                 "mode": "live",
                                 "track": track,
                                 "reply": _launch_reply(pending_pre),
                                 "actions": actions,
                                 "pending_launch": pending_pre,
-                            }
+                            })
                         if pre_actions:
                             # Record ensure_autocad_ready / launch prep in the transcript
                             for a in pre_actions:
@@ -1578,13 +1616,13 @@ async def chat(
                         "drawing_path": parsed.get("drawing_path"),
                         "status": parsed.get("status") or {},
                     }
-                    return {
+                    return _with_usage({
                         "mode": "live",
                         "track": track,
                         "reply": _launch_reply(pending_ask),
                         "actions": actions,
                         "pending_launch": pending_ask,
-                    }
+                    })
 
                 # Stop thrashing the same broken tool (small models loop on validation).
                 err_blob = json.dumps(parsed).lower() if isinstance(parsed, dict) else ""
@@ -1669,13 +1707,13 @@ async def chat(
                             "drawing_path": ready.get("drawing_path"),
                             "status": ready.get("status") or {},
                         }
-                        return {
+                        return _with_usage({
                             "mode": "live",
                             "track": track,
                             "reply": _launch_reply(pending_ask),
                             "actions": actions,
                             "pending_launch": pending_ask,
-                        }
+                        })
                     if ready.get("ok"):
                         result = await asyncio.to_thread(
                             run_tool, dispatch, fn, raw_args
@@ -1761,13 +1799,13 @@ async def chat(
                             "prompt": ready.get("prompt"),
                             "status": ready.get("status") or {},
                         }
-                        return {
+                        return _with_usage({
                             "mode": "live",
                             "track": track,
                             "reply": _launch_reply(pending_ask),
                             "actions": actions,
                             "pending_launch": pending_ask,
-                        }
+                        })
                     if ready.get("ok"):
                         result = await asyncio.to_thread(
                             run_tool, dispatch, fn, raw_args
@@ -1807,7 +1845,7 @@ async def chat(
                             retry_tool = None
 
                 if retry_streak >= 4:
-                    return {
+                    return _with_usage({
                         "mode": "live",
                         "track": track,
                         "reply": _sanitize_user_reply(
@@ -1815,7 +1853,7 @@ async def chat(
                             actions,
                         ),
                         "actions": actions,
-                    }
+                    })
 
             pending = _pending_switch_from_actions(actions, track)
             if pending:
@@ -1824,32 +1862,32 @@ async def chat(
                 reply = _sanitize_user_reply(reply, actions)
                 if "confirm" not in reply.lower() and "cancel" not in reply.lower():
                     reply = f"{reply}\n\n{_switch_reply(pending)}".strip()
-                return {
+                return _with_usage({
                     "mode": "live",
                     "track": track,
                     "reply": reply,
                     "actions": actions,
                     "pending_switch": pending,
-                }
+                })
 
             pending_launch = _pending_launch_from_actions(actions)
             if pending_launch:
                 # Stop here — use our short reply so text always matches the buttons
-                return {
+                return _with_usage({
                     "mode": "live",
                     "track": track,
                     "reply": _launch_reply(pending_launch),
                     "actions": actions,
                     "pending_launch": pending_launch,
-                }
+                })
 
             # Other tool errors stay in `actions` / working messages for the LLM
             # to explain on the next round.
             if await _cancelled():
-                return {
+                return _with_usage({
                     "mode": "live",
                     "track": track,
                     "reply": "Stopped.",
                     "actions": actions,
                     "stopped": True,
-                }
+                })

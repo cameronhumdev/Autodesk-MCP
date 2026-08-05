@@ -1,9 +1,10 @@
 # Cloud stack for Linux hosts (e.g. jp-demo /opt/adsk-mcp-cloud)
-# Snap Docker cannot bind-mount /opt — gateway is built into an image instead.
+# Snap Docker cannot bind-mount /opt — images are built from $HOME/adsk-mcp-cloud mirror.
 #
-#   cd /opt/adsk-mcp-cloud/docker
+#   cd ~/adsk-mcp-cloud/docker
 #   ~/.docker/cli-plugins/docker-compose -f compose.cloud.yml up -d --build
 #
+# Chat UI:     http://HOST:8787   (LLM + RAG on server; CAD via gateway → laptop agent)
 # AnythingLLM: http://HOST:3188
 # Gateway:     http://HOST:8790
 services:
@@ -30,6 +31,36 @@ services:
       - "8790:8790"
     environment:
       PYTHONUNBUFFERED: "1"
+      CAD_SERVICE_KEY: ${CAD_SERVICE_KEY:-dev-cloud}
+    restart: unless-stopped
+
+  test-ui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.test-ui
+    image: adsk-mcp-test-ui:local
+    container_name: adsk-mcp-test-ui
+    ports:
+      - "8787:8080"
+    environment:
+      PYTHONUNBUFFERED: "1"
+      HOST: "0.0.0.0"
+      PORT: "8080"
+      CAD_MODE: remote
+      GATEWAY_URL: http://gateway:8790
+      CAD_SERVICE_KEY: ${CAD_SERVICE_KEY:-dev-cloud}
+      CAD_TENANT_ID: dev
+      RAG_BACKEND: local
+      LLM_MODE: live
+      # Set these in docker/.env on the server (or export before compose up):
+      # LLM_BASE_URL=https://api.anthropic.com/v1
+      # LLM_MODEL=claude-sonnet-4-6
+      # LLM_API_KEY=...
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.anthropic.com/v1}
+      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-4-6}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+    depends_on:
+      - gateway
     restart: unless-stopped
 
 volumes:
