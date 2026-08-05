@@ -29,6 +29,7 @@ else
 fi
 
 cd "$OPT_ROOT"
+chmod +x scripts/jpdemo-pull.sh scripts/jpdemo-tmux.sh 2>/dev/null || true
 echo "==> $(git log -1 --oneline)"
 
 echo "==> sync mirror $HOME_MIRROR (Snap Docker cannot build from /opt)"
