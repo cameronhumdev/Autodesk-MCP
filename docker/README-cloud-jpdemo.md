@@ -70,22 +70,16 @@ python -m client run
 
 Leave the tunnel window open while testing.
 
-## Update + start (scripts)
+## Update + start (on jp-demo only)
 
-**From Windows (push + remote pull + tmux):**
-
-```powershell
-pwsh scripts\jpdemo-deploy.ps1
-# or: pwsh scripts\jpdemo-deploy.ps1 -NoPush
-# attach: pwsh scripts\jpdemo-deploy.ps1 -Attach
-```
-
-**On jp-demo:**
+SSH to the server, then:
 
 ```bash
-bash /opt/adsk-mcp-cloud/scripts/jpdemo-pull.sh   # git pull + rsync mirror
-bash /opt/adsk-mcp-cloud/scripts/jpdemo-tmux.sh   # tmux session `adsk-mcp`
-# attach later: tmux attach -t adsk-mcp
+cd /opt/adsk-mcp-cloud
+bash scripts/jpdemo-pull.sh    # git reset to origin + rsync Docker mirror
+bash scripts/jpdemo-tmux.sh    # tmux session `adsk-mcp` (compose + logs)
+# later:
+tmux attach -t adsk-mcp        # detach: Ctrl-b d
 ```
 
-tmux windows: `stack` (compose + gateway logs) · `anythingllm` · `git` · `health`
+tmux windows: `stack` · `anythingllm` · `git` · `health`
