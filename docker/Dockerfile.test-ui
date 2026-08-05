@@ -2,8 +2,8 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY test-ui/requirements.txt /app/test-ui/requirements.txt
-RUN pip install --no-cache-dir -r /app/test-ui/requirements.txt
+COPY test-ui/requirements-cloud.txt /app/test-ui/requirements-cloud.txt
+RUN pip install --no-cache-dir -r /app/test-ui/requirements-cloud.txt
 
 COPY rag /app/rag
 COPY cad /app/cad
